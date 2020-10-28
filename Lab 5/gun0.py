@@ -9,6 +9,11 @@ SILVER = (192, 192, 192)
 MIN_GUN_LEN = 10
 MAX_GUN_LEN = 50
 
+TARGET_COLORS = ((255, 0, 0), (0, 0, 255), (255, 255, 110), (255, 0, 255),
+                (0, 255, 255), (0, 255, 0), (250, 250, 210), (128, 0, 128), 
+                (169, 32, 62), (119, 221, 119), (251, 96, 72))
+
+
 class Ball():
     
     def __init__(self, rad=18, vel=[0,0]):
@@ -79,14 +84,32 @@ class Gun():
         self.length = MIN_GUN_LEN
         return new_ball
         
-    def move(self, step=0.5):
+    def move(self, step=0.7):
         if self.active == True and self.length < MAX_GUN_LEN:
             self.length += step
         
         
 class Target():
-    pass
-
+    
+    def __init__(self, radius=35):
+        coord_x = gauss(SCREEN_SIZE[0]//2, 250)
+        coord_y = gauss(SCREEN_SIZE[1]//2, 200)
+        rad = gauss(radius, 10)
+        while coord_x > SCREEN_SIZE[0] - 30 or coord_x < 30:
+            coord_x = (coord_x + SCREEN_SIZE[0]//2)//2
+        while coord_y > SCREEN_SIZE[1] - 30 or coord_y < 30:
+            coord_y = (coord_y + SCREEN_SIZE[1]//2)//2
+        while rad < 13:
+            rad += 5
+        self.coord = [int(coord_x), int(coord_y)]
+        self.rad = int(rad)
+        self.color = TARGET_COLORS[randint(0, len(TARGET_COLORS) - 1)]
+        
+    def draw(self, screen):
+        pg.draw.circle(screen, self.color, self.coord, self.rad)    
+    
+    
+                               
 class Table():
     pass
 
@@ -96,13 +119,17 @@ class Manager():
         self.gun = Gun()
         self.score = Table()
         self.balls = []
+        self.targets = []
+        for i in range(3):
+            self.targets.append(Target())
         
     def draw(self, screen):
         screen.fill(SCREEN_COLOR)
         self.gun.draw(screen)
         for ball in self.balls:
             ball.draw(screen)
-        
+        for targ in self.targets:
+            targ.draw(screen)
         
         
     def handle_events(self, events):
@@ -129,10 +156,29 @@ class Manager():
         return done
         
     def remove_balls(self):
-        for i, ball in enumerate(self.balls):
+        count = 0
+        for ball in self.balls:
             if (ball.vel[0]**2 + ball.vel[1]**2) < 1 and (ball.coord[1] + 2*ball.rad) > SCREEN_SIZE[1]:
-                self.balls.pop(i)
+                self.balls.pop(count)
+                count -= 1
+            count += 1
             
+    def add_targets(self, n=3):
+        for i in range(n):
+            self.targets.append(Target())
+            
+    def remove_targets(self):
+        count = 0
+        for targ in self.targets:
+            for ball in self.balls:
+                dist = np.sqrt((ball.coord[0]-targ.coord[0])**2 + 
+                               (ball.coord[1]-targ.coord[1])**2)
+                if dist < targ.rad + ball.rad:
+                    self.targets.pop(count)
+                    count -= 1
+            count += 1
+        if len(self.targets) == 0:
+            self.add_targets()
             
     def process(self, events, screen):
         done = self.handle_events(events)
@@ -143,6 +189,7 @@ class Manager():
         for ball in self.balls:
             ball.move()
         self.remove_balls()
+        self.remove_targets()
         self.gun.move()
 
         
