@@ -3,22 +3,22 @@ import pygame as pg
 from random import randint, gauss
 
 SCREEN_SIZE = (900, 600)
-SCREEN_COLOR = (0, 33, 55)
-GOLD = (255, 215, 0)
-SILVER = (192, 192, 192)
+SCREEN_COLOR = (0,0,51)
+GUN_COLOR = (204,136,0)
+BALL_COLOR = (255,255,0)
+TABLE_COLOR = (192, 192, 192)
 MIN_GUN_LEN = 10
 MAX_GUN_LEN = 50
 
-TARGET_COLORS = ((255, 0, 0), (0, 0, 255), (255, 255, 110), (255, 0, 255),
-                (0, 255, 255), (0, 255, 0), (250, 250, 210), (128, 0, 128), 
-                (169, 32, 62), (119, 221, 119), (251, 96, 72))
-
+TARGET_COLORS = ((255,128,128), (255,191,128), (255,255,128), (191,255,128), 
+                 (128,255,128), (128,255,191), (128,255,255), (128,191,255),
+                 (128,128,255), (191,128,255), (255,128,255), (255,128,191))
 
 class Ball():
     
     def __init__(self, rad=18, vel=[0,0]):
         self.coord = []
-        self.color = SILVER
+        self.color = BALL_COLOR
         self.rad = rad
         self.vel = vel
     
@@ -64,17 +64,17 @@ class Gun():
         self.length = leng
         self.active = False
     
-    def draw(self, screen, width=10):
+    def draw(self, screen, width=16):
         end_coord = [self.coord[0] + self.length*np.cos(self.angle), 
                      self.coord[1] + self.length*np.sin(self.angle)]
-        pg.draw.line(screen, GOLD, self.coord, end_coord, width)
+        pg.draw.line(screen, GUN_COLOR, self.coord, end_coord, width)
 
 
     def set_angle(self, mouse_pos):
         self.angle = np.arctan2(mouse_pos[1] - self.coord[1], 
                                 mouse_pos[0] - self.coord[0])
         
-    def strike(self, coef=0.7):
+    def strike(self, coef=0.6):
         new_ball = Ball()
         new_ball.coord = self.coord.copy()
         new_ball.vel = [self.length*np.cos(self.angle)*coef,
@@ -91,7 +91,7 @@ class Gun():
         
 class Target():
     
-    def __init__(self, radius=35):
+    def __init__(self, radius=30):
         coord_x = gauss(SCREEN_SIZE[0]//2, 250)
         coord_y = gauss(SCREEN_SIZE[1]//2, 200)
         rad = gauss(radius, 10)
@@ -111,16 +111,26 @@ class Target():
     
                                
 class Table():
-    pass
+    def __init__(self):
+        self.coord = [SCREEN_SIZE[0]//2 - 90, 20]
+        self.score = 0
+        self.balls_used = 0
+        
+        
+        
+    def draw(self, screen):
+        font = pg.font.Font(None, 66)
+        text = font.render("Score: " + str(self.score), False, TABLE_COLOR)
+        screen.blit(text, self.coord)
 
 class Manager():
     
-    def __init__(self):
+    def __init__(self, number_of_targets=3):
         self.gun = Gun()
-        self.score = Table()
+        self.table = Table()
         self.balls = []
         self.targets = []
-        for i in range(3):
+        for i in range(number_of_targets):
             self.targets.append(Target())
         
     def draw(self, screen):
@@ -130,7 +140,7 @@ class Manager():
             ball.draw(screen)
         for targ in self.targets:
             targ.draw(screen)
-        
+        self.table.draw(screen)
         
     def handle_events(self, events):
         done = False
@@ -149,6 +159,7 @@ class Manager():
             elif event.type == pg.MOUSEBUTTONUP:
                 if event.button == 1:
                     self.balls.append(self.gun.strike())
+                    self.table.balls_used += 1
         if pg.mouse.get_focused():
             mouse_pos = pg.mouse.get_pos()
             self.gun.set_angle(mouse_pos)
@@ -163,17 +174,18 @@ class Manager():
                 count -= 1
             count += 1
             
-    def add_targets(self, n=3):
-        for i in range(n):
+    def add_targets(self, number_of_targets=3):
+        for i in range(number_of_targets):
             self.targets.append(Target())
             
     def remove_targets(self):
         count = 0
         for targ in self.targets:
             for ball in self.balls:
-                dist = np.sqrt((ball.coord[0]-targ.coord[0])**2 + 
-                               (ball.coord[1]-targ.coord[1])**2)
+                dist = np.sqrt((ball.coord[0] - targ.coord[0])**2 + 
+                               (ball.coord[1] - targ.coord[1])**2)
                 if dist < targ.rad + ball.rad:
+                    self.table.score += 1
                     self.targets.pop(count)
                     count -= 1
             count += 1
@@ -192,7 +204,7 @@ class Manager():
         self.remove_targets()
         self.gun.move()
 
-        
+pg.init()        
 screen = pg.display.set_mode(SCREEN_SIZE)
 done = False
 clock = pg.time.Clock()
