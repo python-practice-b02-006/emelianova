@@ -6,6 +6,8 @@ SCREEN_SIZE = (600, 900)
 SCREEN_COLOR = (0, 33, 55)
 GOLD = (255, 215, 0)
 SILVER = (192, 192, 192)
+MIN_GUN_LEN = 20
+MAX_GUN_LEN = 50
 
 class Ball():
     
@@ -15,10 +17,11 @@ class Ball():
         self.rad = rad
         self.vel = vel
     
+    
     def draw(self, screen):
         pg.draw.circle(screen, self.color, self.coord, self.rad)
         
-    def flip_vel(self, axis, coef_perp=1.0, coef_par=1.0):
+    def flip_vel(self, axis, coef_perp=0.9, coef_par=0.9):
         vel = np.array(self.vel)
         n = np.array(axis)
         n = n / n.norm()
@@ -50,10 +53,11 @@ class Ball():
 
 class Gun():
     
-    def __init__(self, alpha=0, leng=30):
+    def __init__(self, alpha=0, leng=MIN_GUN_LEN):
         self.coord = [30, SCREEN_SIZE[1]//2]
         self.angle = alpha
         self.length = leng
+        self.active = False
     
     def draw(self, width=10):
         end_coord = [self.coord[0] + self.length*np.cos(self.angle), 
@@ -64,6 +68,17 @@ class Gun():
     def set_angle(self, mouse_pos):
         self.angle = np.arctan2(mouse_pos[1] - self.coord[1], 
                                 mouse_pos[0] - self.coord[0])
+        
+    def strike(self):
+        self.active = False  
+        self.length = MIN_GUN_LEN
+        return 
+        
+    def move(self):
+        if self.active == True and self.length < MAX_GUN_LEN:
+            self.length += 1
+        
+        
 class Target():
     pass
 
@@ -76,7 +91,6 @@ class Manager():
         self.gun = Gun()
         self.score = Table()
         self.balls = []
-        self.balls.append(Ball([100, 100], [10, 20]))
         
     def draw(self, screen):
         screen.fill(SCREEN_COLOR)
@@ -93,7 +107,13 @@ class Manager():
                 if event.key == pg.K_UP:
                     self.gun.coord[1] -= 5
                 if event.key == pg.K_DOWN:
-                    self.gun.coord[1] += 5      
+                    self.gun.coord[1] += 5  
+            elif event.type == pg.MOUSEBUTTONDOWN:
+                 if event.button == 1:
+                    self.gun.active = True
+            elif event.type == pg.MOUSEBUTTONUP:
+                if event.button == 1:
+                    self.balls.append(self.gun.strike())
         if pg.mouse.get_focused():
             mouse_pos = pg.mouse.get_pos()
             self.gun.set_angle(mouse_pos)
@@ -107,6 +127,7 @@ class Manager():
     def move(self):
         for ball in self.balls:
             ball.move()
+        self.gun.move()
 
         
 screen = pg.display.set_mode(SCREEN_SIZE)
