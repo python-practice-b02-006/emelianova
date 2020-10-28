@@ -2,16 +2,16 @@ import numpy as np
 import pygame as pg
 from random import randint, gauss
 
-SCREEN_SIZE = (600, 900)
+SCREEN_SIZE = (900, 600)
 SCREEN_COLOR = (0, 33, 55)
 GOLD = (255, 215, 0)
 SILVER = (192, 192, 192)
-MIN_GUN_LEN = 20
+MIN_GUN_LEN = 10
 MAX_GUN_LEN = 50
 
 class Ball():
     
-    def __init__(self, rad=40, vel=[0,0]):
+    def __init__(self, rad=18, vel=[0,0]):
         self.coord = []
         self.color = SILVER
         self.rad = rad
@@ -21,10 +21,10 @@ class Ball():
     def draw(self, screen):
         pg.draw.circle(screen, self.color, self.coord, self.rad)
         
-    def flip_vel(self, axis, coef_perp=0.9, coef_par=0.9):
+    def flip_vel(self, axis, coef_perp=0.7, coef_par=0.95):
         vel = np.array(self.vel)
         n = np.array(axis)
-        n = n / n.norm()
+        n = n / np.linalg.norm(n)
         vel_perp = vel*n
         vel_par = vel - vel_perp
         
@@ -33,7 +33,6 @@ class Ball():
         vel = vel_perp + vel_par
         
         self.vel = vel.astype(np.int).tolist()
-        
         
         
     def check_walls(self):
@@ -46,9 +45,10 @@ class Ball():
                 self.coord[i] = -self.rad + SCREEN_SIZE[i] - 1
                 self.flip_vel(norm[i])
         
-    def move(self, t_step=1.):
+    def move(self, t_step=1., a=0.7):
         for i in range(2):
             self.coord[i] += int(self.vel[i] * t_step)
+        self.vel[1] += a * t_step
         self.check_walls()
 
 class Gun():
@@ -59,7 +59,7 @@ class Gun():
         self.length = leng
         self.active = False
     
-    def draw(self, width=10):
+    def draw(self, screen, width=10):
         end_coord = [self.coord[0] + self.length*np.cos(self.angle), 
                      self.coord[1] + self.length*np.sin(self.angle)]
         pg.draw.line(screen, GOLD, self.coord, end_coord, width)
@@ -69,14 +69,19 @@ class Gun():
         self.angle = np.arctan2(mouse_pos[1] - self.coord[1], 
                                 mouse_pos[0] - self.coord[0])
         
-    def strike(self):
+    def strike(self, coef=0.7):
+        new_ball = Ball()
+        new_ball.coord = self.coord.copy()
+        new_ball.vel = [self.length*np.cos(self.angle)*coef,
+                        self.length*np.sin(self.angle)*coef]
+        
         self.active = False  
         self.length = MIN_GUN_LEN
-        return 
+        return new_ball
         
-    def move(self):
+    def move(self, step=0.5):
         if self.active == True and self.length < MAX_GUN_LEN:
-            self.length += 1
+            self.length += step
         
         
 class Target():
@@ -94,7 +99,10 @@ class Manager():
         
     def draw(self, screen):
         screen.fill(SCREEN_COLOR)
-        self.gun.draw()
+        self.gun.draw(screen)
+        for ball in self.balls:
+            ball.draw(screen)
+        
         
         
     def handle_events(self, events):
@@ -120,13 +128,21 @@ class Manager():
             
         return done
         
+    def remove_balls(self):
+        for i, ball in enumerate(self.balls):
+            if (ball.vel[0]**2 + ball.vel[1]**2) < 1 and (ball.coord[1] + 2*ball.rad) > SCREEN_SIZE[1]:
+                self.balls.pop(i)
+            
+            
     def process(self, events, screen):
         done = self.handle_events(events)
+        self.move()
         return done
     
     def move(self):
         for ball in self.balls:
             ball.move()
+        self.remove_balls()
         self.gun.move()
 
         
