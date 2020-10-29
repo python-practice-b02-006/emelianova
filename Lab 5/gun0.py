@@ -5,8 +5,9 @@ from random import randint, gauss
 SCREEN_SIZE = (900, 600)
 SCREEN_COLOR = (0,0,51)
 GUN_COLOR = (204,136,0)
-BALL_COLOR = (255,255,0)
+BALL_COLOR = (255,0,128)
 TABLE_COLOR = (192, 192, 192)
+WALL_COLOR = (255,255,0)
 MIN_GUN_LEN = 10
 MAX_GUN_LEN = 50
 
@@ -107,31 +108,54 @@ class Target():
         
     def draw(self, screen):
         pg.draw.circle(screen, self.color, self.coord, self.rad)    
+
+class Wall():
     
+    def __init__(self, length=50):
+        coord_x = gauss(SCREEN_SIZE[0]//2, 250)
+        coord_y = gauss(SCREEN_SIZE[1]//2, 200)
+        while coord_x > SCREEN_SIZE[0] - 50 or coord_x < 50:
+            coord_x = (coord_x + SCREEN_SIZE[0]//2)//2
+        while coord_y > SCREEN_SIZE[1] - 50 or coord_y < 50:
+            coord_y = (coord_y + SCREEN_SIZE[1]//2)//2
+        self.coord = [coord_x, coord_y]
+        self.len = length
+        self.angle = randint(0, 179)
     
-                               
+    def draw(self, screen, width=5):
+        end_coord = [self.coord[0] + self.length*np.cos(self.angle), 
+                     self.coord[1] + self.length*np.sin(self.angle)]
+        pg.draw.line(screen, GUN_COLOR, self.coord, end_coord, width)
+        
+                             
 class Table():
+    
     def __init__(self):
         self.coord = [SCREEN_SIZE[0]//2 - 90, 20]
-        self.score = 0
         self.balls_used = 0
+        self.targets_hit = 0
+        self.score = 0
         
+    def count(self):
+        self.score = self.targets_hit*2 - self.balls_used
         
-        
-    def draw(self, screen):
-        font = pg.font.Font(None, 66)
-        text = font.render("Score: " + str(self.score), False, TABLE_COLOR)
-        screen.blit(text, self.coord)
+    def draw(self, screen, size=60):
+        font = pg.font.Font(None, size)
+        text_score = font.render("Score: " + str(self.score), False, TABLE_COLOR)
+        screen.blit(text_score, self.coord)        
 
 class Manager():
     
-    def __init__(self, number_of_targets=3):
+    def __init__(self, number_of_targets=3, number_of_walls=2):
         self.gun = Gun()
         self.table = Table()
         self.balls = []
         self.targets = []
+        self.walls = []
         for i in range(number_of_targets):
             self.targets.append(Target())
+        for i in range(number_of_walls):
+            self.walls.append(Wall())
         
     def draw(self, screen):
         screen.fill(SCREEN_COLOR)
@@ -185,13 +209,15 @@ class Manager():
                 dist = np.sqrt((ball.coord[0] - targ.coord[0])**2 + 
                                (ball.coord[1] - targ.coord[1])**2)
                 if dist < targ.rad + ball.rad:
-                    self.table.score += 1
+                    self.table.targets_hit += 1
                     self.targets.pop(count)
                     count -= 1
             count += 1
         if len(self.targets) == 0:
             self.add_targets()
             
+    #def reflect_from_walls(self):
+        
     def process(self, events, screen):
         done = self.handle_events(events)
         self.move()
@@ -202,6 +228,7 @@ class Manager():
             ball.move()
         self.remove_balls()
         self.remove_targets()
+        self.table.count()
         self.gun.move()
 
 pg.init()        
