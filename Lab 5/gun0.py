@@ -27,21 +27,18 @@ class Ball():
     def draw(self, screen):
         pg.draw.circle(screen, self.color, self.coord, self.rad)
         
-    def flip_vel(self, axis, coef_perp=0.7, coef_par=0.95):
+        
+    def flip_vel(self, axis, coef_perp=0.8, coef_par=0.85):
         vel = np.array(self.vel)
         n = np.array(axis)
         n = n / np.linalg.norm(n)
-        vel_perp = vel*n
+        vel_perp = vel.dot(n) * n
         vel_par = vel - vel_perp
-        
-        vel_perp = -vel_perp*coef_perp
-        vel_par = vel_par*coef_par
-        vel = vel_perp + vel_par
-        
-        self.vel = vel.astype(np.int).tolist()
+        ans = -vel_perp * coef_perp + vel_par * coef_par
+        self.vel = ans.astype(np.int).tolist()
         
         
-    def check_walls(self):
+    def check_corners(self):
         norm = [[1,0], [0,1]]
         for i in range(2):
             if self.coord[i] < self.rad:
@@ -55,7 +52,7 @@ class Ball():
         for i in range(2):
             self.coord[i] += int(self.vel[i] * t_step)
         self.vel[1] += a * t_step
-        self.check_walls()
+        self.check_corners()
 
 class Gun():
     
@@ -66,10 +63,16 @@ class Gun():
         self.active = False
     
     def draw(self, screen, width=16):
-        end_coord = [self.coord[0] + self.length*np.cos(self.angle), 
-                     self.coord[1] + self.length*np.sin(self.angle)]
-        pg.draw.line(screen, GUN_COLOR, self.coord, end_coord, width)
-
+        coord1 = [self.coord[0] - width//2*np.sin(self.angle),
+                  self.coord[1] + width//2*np.cos(self.angle)]
+        coord2 = [self.coord[0] + width//2*np.sin(self.angle),
+                  self.coord[1] - width//2*np.cos(self.angle)]
+        end_coord1 = [self.coord[0] + self.length*np.cos(self.angle) - width//2*np.sin(self.angle), 
+                     self.coord[1] + self.length*np.sin(self.angle) + width//2*np.cos(self.angle)]
+        end_coord2 = [self.coord[0] + self.length*np.cos(self.angle) + width//2*np.sin(self.angle),
+                     self.coord[1] + self.length*np.sin(self.angle) - width//2*np.cos(self.angle)]
+        
+        pg.draw.polygon(screen, GUN_COLOR, [coord1, coord2, end_coord2, end_coord1])
 
     def set_angle(self, mouse_pos):
         self.angle = np.arctan2(mouse_pos[1] - self.coord[1], 
@@ -80,7 +83,6 @@ class Gun():
         new_ball.coord = self.coord.copy()
         new_ball.vel = [self.length*np.cos(self.angle)*coef,
                         self.length*np.sin(self.angle)*coef]
-        
         self.active = False  
         self.length = MIN_GUN_LEN
         return new_ball
@@ -111,7 +113,7 @@ class Target():
 
 class Wall():
     
-    def __init__(self, length=50):
+    def __init__(self, length=150):
         coord_x = gauss(SCREEN_SIZE[0]//2, 250)
         coord_y = gauss(SCREEN_SIZE[1]//2, 200)
         while coord_x > SCREEN_SIZE[0] - 50 or coord_x < 50:
@@ -119,13 +121,23 @@ class Wall():
         while coord_y > SCREEN_SIZE[1] - 50 or coord_y < 50:
             coord_y = (coord_y + SCREEN_SIZE[1]//2)//2
         self.coord = [coord_x, coord_y]
-        self.len = length
+        self.length = length
         self.angle = randint(0, 179)
+        self.width = 12
+        self.n = [+np.sin(self.angle), -np.cos(self.angle)]
+        self.m = [-np.cos(self.angle), -np.sin(self.angle)]
     
-    def draw(self, screen, width=5):
-        end_coord = [self.coord[0] + self.length*np.cos(self.angle), 
-                     self.coord[1] + self.length*np.sin(self.angle)]
-        pg.draw.line(screen, GUN_COLOR, self.coord, end_coord, width)
+    def draw(self, screen):
+        coord1 = [self.coord[0] - self.length*np.cos(self.angle)//2 - self.width//2*np.sin(self.angle),
+                  self.coord[1] - self.length*np.sin(self.angle)//2 + self.width//2*np.cos(self.angle)]
+        coord2 = [self.coord[0] - self.length*np.cos(self.angle)//2 + self.width//2*np.sin(self.angle),
+                  self.coord[1] - self.length*np.sin(self.angle)//2 - self.width//2*np.cos(self.angle)]
+        end_coord1 = [self.coord[0] + self.length*np.cos(self.angle)//2 - self.width//2*np.sin(self.angle), 
+                     self.coord[1] + self.length*np.sin(self.angle)//2 + self.width//2*np.cos(self.angle)]
+        end_coord2 = [self.coord[0] + self.length*np.cos(self.angle)//2 + self.width//2*np.sin(self.angle),
+                     self.coord[1] + self.length*np.sin(self.angle) //2- self.width//2*np.cos(self.angle)]
+        
+        pg.draw.polygon(screen, WALL_COLOR, [coord1, coord2, end_coord2, end_coord1])
         
                              
 class Table():
@@ -143,6 +155,7 @@ class Table():
         font = pg.font.Font(None, size)
         text_score = font.render("Score: " + str(self.score), False, TABLE_COLOR)
         screen.blit(text_score, self.coord)        
+
 
 class Manager():
     
@@ -164,6 +177,8 @@ class Manager():
             ball.draw(screen)
         for targ in self.targets:
             targ.draw(screen)
+        for wall in self.walls:
+            wall.draw(screen)
         self.table.draw(screen)
         
     def handle_events(self, events):
@@ -171,7 +186,6 @@ class Manager():
         for event in events:
             if event.type == pg.QUIT:
                 done = True
-                
             elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_UP:
                     self.gun.coord[1] -= 5
@@ -202,6 +216,11 @@ class Manager():
         for i in range(number_of_targets):
             self.targets.append(Target())
             
+    def add_walls(self, number_of_walls=2):
+        for i in range(number_of_walls):
+            self.walls.append(Wall())
+            
+            
     def remove_targets(self):
         count = 0
         for targ in self.targets:
@@ -213,10 +232,39 @@ class Manager():
                     self.targets.pop(count)
                     count -= 1
             count += 1
-        if len(self.targets) == 0:
-            self.add_targets()
+            if len(self.targets) == 0:
+                self.add_targets()
             
-    #def reflect_from_walls(self):
+    def remove_walls(self, number_of_walls=2):
+        for ball in self.balls:
+            count = 0
+            for wall in self.walls:
+                delta_coord = [wall.coord[0] - ball.coord[0], 
+                                wall.coord[1] - ball.coord[1]]
+                dist = [delta_coord[0]*wall.n[0] + delta_coord[1]*wall.n[1], 
+                        delta_coord[0]*wall.m[0] + delta_coord[1]*wall.m[1]]
+                if  np.abs(dist[0]) < ball.rad + wall.width and np.abs(dist[1]) < wall.length//2 + wall.width: 
+                    self.walls.pop(count)
+                    count -= 1
+                    if dist[0] >= 0:
+                        ball.coord[0] = int((wall.coord[0] - 
+                                            (wall.width + ball.rad)*np.sin(wall.angle)
+                                            + dist[1]*np.cos(wall.angle)))
+                        ball.coord[1] = int(wall.coord[1] +
+                                            (wall.width + ball.rad)*np.cos(wall.angle)
+                                            + dist[1]*np.sin(wall.angle))
+                        ball.flip_vel(wall.n)
+                    elif dist[0] < 0:
+                        ball.coord[0] = int(wall.coord[0] + 
+                                            (wall.width + ball.rad)*np.sin(wall.angle)
+                                            + dist[1]*np.cos(wall.angle))
+                        ball.coord[1] = int(wall.coord[1] -
+                                            (wall.width + ball.rad)*np.cos(wall.angle)
+                                            + dist[1]*np.sin(wall.angle))
+                        ball.flip_vel([-wall.n[0], -wall.n[1]])
+                count += 1
+        if len(self.walls) <= 1:
+            self.add_walls()
         
     def process(self, events, screen):
         done = self.handle_events(events)
@@ -226,6 +274,7 @@ class Manager():
     def move(self):
         for ball in self.balls:
             ball.move()
+        self.remove_walls()
         self.remove_balls()
         self.remove_targets()
         self.table.count()
