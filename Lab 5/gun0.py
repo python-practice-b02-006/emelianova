@@ -23,12 +23,27 @@ class Ball():
         self.rad = rad
         self.vel = vel
     
-    
     def draw(self, screen):
         pg.draw.circle(screen, self.color, self.coord, self.rad)
         
-        
     def flip_vel(self, axis, coef_perp=0.8, coef_par=0.85):
+        '''
+        flips velocity if a ball reflects from a wall or a corner
+
+        Parameters
+        ----------
+        axis : list of 2 elements
+            normal vector to the wall
+        coef_perp : float, optional
+            The default is 0.8.
+        coef_par : float, optional
+            The default is 0.85.
+
+        Returns
+        -------
+        None.
+
+        '''
         vel = np.array(self.vel)
         n = np.array(axis)
         n = n / np.linalg.norm(n)
@@ -39,6 +54,14 @@ class Ball():
         
         
     def check_corners(self):
+        '''
+        checks if a ball needs to reflect from the corners
+        
+        Returns
+        -------
+        None.
+
+        '''
         norm = [[1,0], [0,1]]
         for i in range(2):
             if self.coord[i] < self.rad:
@@ -75,10 +98,38 @@ class Gun():
         pg.draw.polygon(screen, GUN_COLOR, [coord1, coord2, end_coord2, end_coord1])
 
     def set_angle(self, mouse_pos):
+        '''
+        sets the angle so the gun follows the position of the mouse
+
+        Parameters
+        ----------
+        mouse_pos : list of two ints
+            mouse position.
+
+        Returns
+        -------
+        None.
+
+        '''
         self.angle = np.arctan2(mouse_pos[1] - self.coord[1], 
                                 mouse_pos[0] - self.coord[0])
         
     def strike(self, coef=0.6):
+        '''
+        makes a new ball
+
+        Parameters
+        ----------
+        coef : float, optional
+            is used because otherwise the velocities will be too big.
+            The default is 0.6.
+
+        Returns
+        -------
+        new_ball : Ball
+
+
+        '''
         new_ball = Ball()
         new_ball.coord = self.coord.copy()
         new_ball.vel = [self.length*np.cos(self.angle)*coef,
@@ -88,6 +139,19 @@ class Gun():
         return new_ball
         
     def move(self, step=0.7):
+        '''
+        changes the length of the gun
+
+        Parameters
+        ----------
+        step : float, optional
+            The default is 0.7.
+
+        Returns
+        -------
+        None.
+
+        '''
         if self.active == True and self.length < MAX_GUN_LEN:
             self.length += step
         
@@ -114,6 +178,22 @@ class Target():
 class Wall():
     
     def __init__(self, length=150):
+        '''
+        
+        coord = coordinates of the middle of the wall
+        n = normal vector
+        m = a vector, parallel to the wall
+        
+        Parameters
+        ----------
+        length : int/float, optional
+            The default is 150.
+
+        Returns
+        -------
+        None.
+
+        '''
         coord_x = gauss(SCREEN_SIZE[0]//2, 250)
         coord_y = gauss(SCREEN_SIZE[1]//2, 200)
         while coord_x > SCREEN_SIZE[0] - 50 or coord_x < 50:
@@ -149,6 +229,14 @@ class Table():
         self.score = 0
         
     def count(self):
+        '''
+        counts the score
+
+        Returns
+        -------
+        None.
+
+        '''
         self.score = self.targets_hit*2 - self.balls_used
         
     def draw(self, screen, size=60):
@@ -182,6 +270,19 @@ class Manager():
         self.table.draw(screen)
         
     def handle_events(self, events):
+        '''
+        handles events like mouse clicks
+
+        Parameters
+        ----------
+        events : pygame events
+
+        Returns
+        -------
+        done : Bool
+            if done==True, it closes the window
+
+        '''
         done = False
         for event in events:
             if event.type == pg.QUIT:
@@ -205,6 +306,14 @@ class Manager():
         return done
         
     def remove_balls(self):
+        '''
+        removes the balls that they have small energy
+
+        Returns
+        -------
+        None.
+
+        '''
         count = 0
         for ball in self.balls:
             if (ball.vel[0]**2 + ball.vel[1]**2) < 1 and (ball.coord[1] + 2*ball.rad) > SCREEN_SIZE[1]:
@@ -222,6 +331,14 @@ class Manager():
             
             
     def remove_targets(self):
+        '''
+        deletes targets if they were hit
+
+        Returns
+        -------
+        None.
+
+        '''
         count = 0
         for targ in self.targets:
             for ball in self.balls:
@@ -236,6 +353,21 @@ class Manager():
                 self.add_targets()
             
     def remove_walls(self, number_of_walls=2):
+        '''
+        deletes walls if they were hit and reflects the balls,
+        adds some new walls if there are few left
+        
+
+        Parameters
+        ----------
+        number_of_walls : int, optional
+            The default is 2.
+
+        Returns
+        -------
+        None.
+
+        '''
         for ball in self.balls:
             count = 0
             for wall in self.walls:
@@ -272,6 +404,14 @@ class Manager():
         return done
     
     def move(self):
+        '''
+        makes everything work
+
+        Returns
+        -------
+        None.
+
+        '''
         for ball in self.balls:
             ball.move()
         self.remove_walls()
