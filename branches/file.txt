@@ -1,0 +1,4 @@
+class FeatureClass():
+	def __init__(self):
+		print('Important message')
+
