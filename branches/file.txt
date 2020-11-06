@@ -1,5 +1,6 @@
 class FeatureClass():
 
 	def __init__(self):
-	print('Initiated')
-	
+	  print('Initiated')
+		print('Important message')
+
